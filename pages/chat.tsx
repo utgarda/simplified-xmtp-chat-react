@@ -1,68 +1,54 @@
 import {NextPage} from 'next';
 import AddressPill from "components/Conversation/AddressPill";
 import MessagesList from "components/Conversation/Messagelist";
-import React, {useEffect, useRef, useState} from "react";
-import {Client, Message} from '@xmtp/xmtp-js'
+import React, {useContext, useEffect, useRef, useState} from "react";
+import {Conversation, Message} from '@xmtp/xmtp-js'
 
 import {useAccount, useSigner} from "wagmi";
 import {ConnectButton} from "@rainbow-me/rainbowkit";
+import XmtpContext from "../components/Conversation/xmtp";
 
 
 const ConversationPage: NextPage = () => {
-
+    const PEER_ADDR = '0x3Be65C389F095aaa50D0b0F3801f64Aa0258940b'
+    const {client, conversations} = useContext(XmtpContext)
     const [messages, setMessages] = useState<Message[]>([]);
 
-    const {address, isConnected} = useAccount();
-    const {data: signer} = useSigner();
+    const {address} = useAccount();
     const messagesEndRef = useRef(null);
-    const [addr, setAddr] = useState<string>("");
+    const [conv, setConv] = useState<Conversation | null>(null);
 
     useEffect(() => {
-        if (isConnected && signer) {
-            console.log('isConnected', isConnected);
-            console.log('signer', signer);
-            signer.getAddress().then(setAddr).then(
-                () => {
-
-                    const msgs = [...messages];
-                    Client.create(signer).then(xmtp =>
-
-                        xmtp.conversations.newConversation(
-                            '0x3Be65C389F095aaa50D0b0F3801f64Aa0258940b'
-                        )
-                    ).then(conversation => {
-                        conversation.send('Hello world 112')
-                            .then(message => {
-                                msgs.push(message);
-                                setMessages([...msgs]);
-                            })
-                            .then(() => conversation.send('Hello world 2'))
-                            .then(message => {
-                                msgs.push(message);
-                                setMessages([...msgs]);
-                            })
-                            .then(() => conversation.send('Hello world 3'))
-                            .then(message => {
-                                msgs.push(message);
-                                setMessages([...msgs]);
-                            })
-                    });
-
+            if (client && conversations) {
+                const existingConv = conversations.get(PEER_ADDR);
+                if (existingConv) {
+                    setConv(existingConv);
+                } else {
+                    client.conversations.newConversation(
+                        PEER_ADDR
+                    ).then(setConv)
                 }
-            );
+            }
         }
+        , [client, conversations]);
 
-    }, [isConnected, signer]);
+    useEffect(() => {
+        if (conv) {
+            const msgs = [...messages];
+            conv.send('Hello world 112')
+                .then(() => conv.send('Hello world 2'))
+                .then(() => {
+                    conv.messages().then(setMessages);
+                });
+        }
+    }, [conv]);
 
 
-    if (addr) {
-        console.log('addr', addr);
-        console.log('messages', messages);
+    if (address && conv) {
         return <div>
-            <AddressPill pillAddress={addr}/>
+            <AddressPill pillAddress={address}/>
             <MessagesList messagesEndRef={messagesEndRef} messages={messages}/>
         </div>;
-
     } else {
         return <ConnectButton/>
     }

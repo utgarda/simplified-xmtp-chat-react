@@ -20,12 +20,27 @@ export const XmtpProvider: React.FC<{ children: React.ReactNode }> = ({children}
 
     const initClient = useCallback(
         async (wallet: Signer) => {
-            if (wallet && !client) {
-                try {
-                    setClient(await Client.create(wallet, {env: 'production'}))
-                } catch (e) {
-                    console.error(e)
-                    setClient(null)
+            console.log('initClient', wallet, 'oldClient', client)
+            if (wallet) {
+                if (!client) {
+                    try {
+                        setClient(await Client.create(wallet, {env: 'production'}))
+                    } catch (e) {
+                        console.error(e)
+                        setClient(null)
+                    }
+                } else {
+                    const newAddress = await wallet.getAddress();
+                    if (newAddress !== client.address) {
+                        console.log('reset client', wallet);
+                        try {
+                            // await client.close() //TODO what happens between this and the next line
+                            setClient(await Client.create(wallet, {env: 'production'}))
+                        } catch (e) {
+                            console.error(e)
+                            setClient(null)
+                        }
+                    }
                 }
             }
         },
